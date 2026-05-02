@@ -22,6 +22,8 @@ export default function UploadPage() {
     anomaliesFound: number
     processingTime: number
     message: string
+    description?: string | null
+    recommendation?: string | null
   } | null>(null)
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -62,35 +64,63 @@ export default function UploadPage() {
     setIsProcessing(true)
     setUploadResult(null)
 
-    // Simulate processing
-    // await new Promise(resolve => setTimeout(resolve, 2000))
-
+    const startedAt = performance.now();
 
     try {
     const fileText = await file.text();
     const jsonData = JSON.parse(fileText);
 
     const res = await fetch("http://localhost:5000/api/predict", {
-      method: "POST", 
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(jsonData),
     });
     const data = await res.json()
+    const elapsedSec = (performance.now() - startedAt) / 1000;
 
 
     if (res.ok) {
+      // Backend returns either a single result or { count, attacks, results: [...] }
+      const isBatch = Array.isArray(data?.results);
+      const anomaliesFound = isBatch
+        ? data.attacks
+        : (data.is_attack ? 1 : 0);
+      const message = isBatch
+        ? `Analyzed ${data.count} record${data.count === 1 ? '' : 's'} — ${data.attacks} attack${data.attacks === 1 ? '' : 's'} detected`
+        : (data.prediction || "Prediction complete");
+
+      // For batches, surface the most common attack class's explanation
+      let description: string | null = null;
+      let recommendation: string | null = null;
+      if (isBatch) {
+        const attacks = (data.results || []).filter((r: any) => r.is_attack);
+        if (attacks.length > 0) {
+          const counts = attacks.reduce((acc: Record<string, number>, r: any) => {
+            acc[r.prediction] = (acc[r.prediction] || 0) + 1;
+            return acc;
+          }, {});
+          const top = Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number))[0][0];
+          const sample = attacks.find((r: any) => r.prediction === top);
+          description = sample?.description ?? null;
+          recommendation = sample?.recommendation ?? null;
+        }
+      } else {
+        description = data.description ?? null;
+        recommendation = data.recommendation ?? null;
+      }
+
       setUploadResult({
         fileName: file.name,
         status: "complete",
-        anomaliesFound: data.is_attack ? 1 : 0, // shows 1 if attack detected
-        processingTime: Math.floor(Math.random() * 10) + 1,
-        message: data.prediction || "Prediction complete",
-        
+        anomaliesFound,
+        processingTime: Number(elapsedSec.toFixed(2)),
+        message,
+        description,
+        recommendation,
       });
       markDetectionComplete();
-      router.push("/results")
     } else {
       setUploadResult({
         fileName: file.name,
@@ -223,6 +253,26 @@ export default function UploadPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Explanation + Recommended Action */}
+              {uploadResult.status === 'complete' && uploadResult.description && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+                    <p className="text-xs font-semibold text-destructive uppercase tracking-wide mb-1">
+                      Why this was flagged
+                    </p>
+                    <p className="text-sm text-foreground">{uploadResult.description}</p>
+                  </div>
+                  {uploadResult.recommendation && (
+                    <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
+                      <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
+                        Recommended Action
+                      </p>
+                      <p className="text-sm text-foreground">{uploadResult.recommendation}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3 justify-center pt-4">

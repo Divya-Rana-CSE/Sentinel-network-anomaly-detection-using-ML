@@ -6,13 +6,11 @@ import { AppLayout } from "@/components/layout/app-layout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { mockResultsTable } from "@/lib/mock-data";
 import { Search, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export default function ResultsPage() {
-  const [data, setData] = useState<any[]>([]); /**/
-  const [loading, setLoading] = useState(true); /**/
+  const [data, setData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "all" | "normal" | "anomaly" | "suspicious"
@@ -31,19 +29,20 @@ export default function ResultsPage() {
         const transformed = json.map((item: any) => ({
           id: item.id,
           timestamp: item.timestamp,
-          sourceIp: item.src_bytes, // you might replace with real src_ip later
-          destIp: item.dst_bytes, // or a proper destination field
+          srcBytes: item.src_bytes,
+          dstBytes: item.dst_bytes,
+          service: item.service,
+          flag: item.flag,
           protocol: item.protocol,
-          status: item.prediction.toLowerCase(), // 'Attack' → 'attack'
-          anomalyScore: item.confidence / 100, // Convert 0–100 → 0–1 scale
+          status: item.prediction && item.prediction.toLowerCase() !== 'normal' && item.prediction !== '0' ? 'anomaly' : 'normal',
+          attackType: item.prediction,
+          anomalyScore: item.confidence / 100,
         }));
         setData(transformed);
 
         // setData(json);
       } catch (err) {
         console.error("Error fetching data:", err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchData();
@@ -54,9 +53,11 @@ export default function ResultsPage() {
     // Prepare CSV headers
     const headers = [
       "Timestamp",
-      "Source IP",
-      "Destination IP",
       "Protocol",
+      "Service",
+      "Flag",
+      "Src Bytes",
+      "Dst Bytes",
       "Status",
       "Anomaly Score",
     ];
@@ -64,9 +65,11 @@ export default function ResultsPage() {
     // Convert filtered data to CSV rows
     const rows = filteredData.map((row) => [
       row.timestamp,
-      row.sourceIp,
-      row.destIp,
       row.protocol,
+      row.service,
+      row.flag,
+      row.srcBytes,
+      row.dstBytes,
       row.status,
       (row.anomalyScore * 100).toFixed(2) + "%",
     ]);
@@ -95,11 +98,13 @@ export default function ResultsPage() {
   };
 
   const filteredData = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     let filtered = data.filter((row) => {
       const matchesSearch =
-        row.sourceIp?.toString().includes(searchTerm)  || /*row.sourceIp.includes(searchTerm) */
-        row.destIp?.toString().includes(searchTerm)  ||   /*row.destIp.includes(searchTerm) */
-        row.protocol?.includes(searchTerm);  /* row.protocol.includes(searchTerm) */
+        !term ||
+        row.protocol?.toLowerCase().includes(term) ||
+        row.service?.toLowerCase().includes(term) ||
+        row.flag?.toLowerCase().includes(term);
 
       const matchesFilter =
         filterStatus === "all" || row.status === filterStatus;
@@ -153,7 +158,7 @@ export default function ResultsPage() {
               <div className="relative md:col-span-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search IP, protocol..."
+                  placeholder="Search protocol, service, flag..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 bg-secondary/50 border-border"
@@ -169,7 +174,6 @@ export default function ResultsPage() {
                 <option value="all">All Status</option>
                 <option value="normal">Normal</option>
                 <option value="anomaly">Anomaly</option>
-                <option value="suspicious">Suspicious</option>
               </select>
 
               {/* Sort */}
@@ -194,13 +198,19 @@ export default function ResultsPage() {
                       Timestamp
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
-                      Source IP
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
-                      Dest IP
-                    </th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
                       Protocol
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
+                      Service
+                    </th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
+                      Flag
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">
+                      Src Bytes
+                    </th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-muted-foreground">
+                      Dst Bytes
                     </th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-muted-foreground">
                       Status
@@ -219,16 +229,22 @@ export default function ResultsPage() {
                       <td className="px-4 py-3 text-sm text-foreground">
                         {row.timestamp}
                       </td>
-                      <td className="px-4 py-3 text-sm font-mono text-foreground">
-                        {row.sourceIp}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-mono text-foreground">
-                        {row.destIp}
-                      </td>
                       <td className="px-4 py-3 text-sm text-foreground">
                         <Badge variant="outline" className="font-mono">
                           {row.protocol}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-mono text-foreground">
+                        {row.service}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-mono text-foreground">
+                        {row.flag}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-foreground">
+                        {row.srcBytes}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-mono text-foreground">
+                        {row.dstBytes}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <Badge

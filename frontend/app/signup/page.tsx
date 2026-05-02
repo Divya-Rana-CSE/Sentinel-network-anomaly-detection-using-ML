@@ -285,11 +285,11 @@ export default function SignupPage() {
               />
               <span className="text-xs text-muted-foreground">
                 I agree to the{' '}
-                <Link href="#" className="text-primary hover:text-primary/80">
+                <Link href="/terms" target="_blank" className="text-primary hover:text-primary/80 underline">
                   Terms and Conditions
                 </Link>{' '}
                 and{' '}
-                <Link href="#" className="text-primary hover:text-primary/80">
+                <Link href="/privacy" target="_blank" className="text-primary hover:text-primary/80 underline">
                   Privacy Policy
                 </Link>
               </span>

@@ -25,9 +25,9 @@ export function Sidebar() {
 
   const links = [
     { href: '/', label: 'Home', icon: Home, requiresAuth: false, requiresDetection: false },
-    // { href: '/dashboard', label: 'Dashboard', icon: BarChart3, requiresAuth: true, requiresDetection: true },
+    { href: '/dashboard', label: 'Dashboard', icon: BarChart3, requiresAuth: true, requiresDetection: true },
     { href: '/upload', label: 'Upload', icon: Upload, requiresAuth: true, requiresDetection: false },
-    // { href: '/live-monitoring', label: 'Live Monitor', icon: Activity, requiresAuth: true, requiresDetection: true },
+    { href: '/live-monitoring', label: 'Live Monitor', icon: Activity, requiresAuth: true, requiresDetection: true },
     { href: '/results', label: 'Results', icon: Table2, requiresAuth: true, requiresDetection: true },
     { href: '/about', label: 'About', icon: Info, requiresAuth: false, requiresDetection: false },
   ]
